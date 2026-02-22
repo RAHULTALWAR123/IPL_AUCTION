@@ -16,13 +16,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
         with:
-          node-version: '20'
-
-      - name: Install Supabase CLI
-        run: npm install -g supabase
+          version: latest
 
       - name: Deploy migrations
         env:
@@ -30,6 +27,5 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
-          supabase login --token $SUPABASE_ACCESS_TOKEN
           supabase link --project-ref $SUPABASE_PROJECT_ID --password $SUPABASE_DB_PASSWORD
           supabase db push
