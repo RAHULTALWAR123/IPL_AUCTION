@@ -1,0 +1,6 @@
+# Supabase folder
+# This folder will contain:
+# - Database migrations
+# - SQL functions
+# - Edge functions (if needed)
+# - Supabase config files
