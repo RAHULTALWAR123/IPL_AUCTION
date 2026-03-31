@@ -1,0 +1,217 @@
+import { create } from 'zustand'
+import { createClient } from '@/lib/supabase/client'
+import type { User, Session } from '@supabase/supabase-js'
+
+interface Profile {
+  id: string
+  email: string
+  name: string | null
+  selected_team_id: number | null
+  squad: Array<{
+    player_id: number
+    name: string
+    avatar: string
+    role: string
+    base_price: number
+    sold_at: number
+  }>
+  budget: number
+}
+
+interface AuthState {
+  user: User | null
+  session: Session | null
+  profile: Profile | null
+  loading: boolean
+  initialized: boolean
+  
+  // Actions
+  signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>
+  signOut: () => Promise<void>
+  resetPassword: (email: string) => Promise<{ error: Error | null }>
+  updatePassword: (newPassword: string) => Promise<{ error: Error | null }>
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>
+  fetchProfile: () => Promise<void>
+  initialize: () => Promise<void>
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  user: null,
+  session: null,
+  profile: null,
+  loading: false,
+  initialized: false,
+
+  signIn: async (email: string, password: string) => {
+    set({ loading: true })
+    const supabase = createClient()
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      set({ loading: false })
+      return { error }
+    }
+
+    if (data.user && data.session) {
+      set({ 
+        user: data.user, 
+        session: data.session,
+        loading: false 
+      })
+      await get().fetchProfile()
+    }
+
+    return { error: null }
+  },
+
+  signUp: async (email: string, password: string, name: string) => {
+    set({ loading: true })
+    const supabase = createClient()
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name,
+        },
+      },
+    })
+
+    if (error) {
+      set({ loading: false })
+      return { error }
+    }
+
+    if (data.user && data.session) {
+      set({ 
+        user: data.user, 
+        session: data.session,
+        loading: false 
+      })
+      await get().fetchProfile()
+    }
+
+    return { error: null }
+  },
+
+  signOut: async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    set({ 
+      user: null, 
+      session: null, 
+      profile: null 
+    })
+  },
+
+  resetPassword: async (email: string) => {
+    set({ loading: true })
+    const supabase = createClient()
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+
+    set({ loading: false })
+    return { error }
+  },
+
+  updatePassword: async (newPassword: string) => {
+    set({ loading: true })
+    const supabase = createClient()
+    
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    set({ loading: false })
+    return { error }
+  },
+
+  updateProfile: async (updates: Partial<Profile>) => {
+    set({ loading: true })
+    const supabase = createClient()
+    const { user } = get()
+
+    if (!user) {
+      set({ loading: false })
+      return { error: new Error('Not authenticated') }
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+
+    if (error) {
+      set({ loading: false })
+      return { error }
+    }
+
+    // Refresh profile
+    await get().fetchProfile()
+    set({ loading: false })
+    return { error: null }
+  },
+
+  fetchProfile: async () => {
+    const supabase = createClient()
+    const { user } = get()
+
+    if (!user) {
+      set({ profile: null })
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+
+    if (!error && data) {
+      set({ profile: data as Profile })
+    }
+  },
+
+  initialize: async () => {
+    if (get().initialized) return
+
+    set({ loading: true })
+    const supabase = createClient()
+
+    // Get initial session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (session) {
+      set({ 
+        user: session.user, 
+        session,
+        initialized: true,
+        loading: false 
+      })
+      await get().fetchProfile()
+    } else {
+      set({ 
+        initialized: true,
+        loading: false 
+      })
+    }
+
+    // Listen for auth changes
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        set({ user: session.user, session })
+        await get().fetchProfile()
+      } else if (event === 'SIGNED_OUT') {
+        set({ user: null, session: null, profile: null })
+      }
+    })
+  },
+}))
