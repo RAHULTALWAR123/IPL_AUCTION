@@ -2,17 +2,18 @@
 import { ThreeDCard } from "@/components/aceternity/3d-card";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { getIplTeamLogoSrc } from "@/lib/ipl-team-assets";
 
 interface TeamCardProps {
   id: number;
   name: string;
   shortName: string;
-  logo?: string | null;
   isSelected?: boolean;
   onSelect: (id: number) => void;
 }
 
-export function TeamCard({ id, name, shortName, logo, isSelected, onSelect }: TeamCardProps) {
+export function TeamCard({ id, name, shortName, isSelected, onSelect }: TeamCardProps) {
+  const logo = getIplTeamLogoSrc(shortName);
   return (
     <ThreeDCard
       containerClassName="cursor-pointer"

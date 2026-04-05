@@ -1,13 +1,18 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { useIplTeamById } from "@/hooks/use-ipl-team-by-id";
+import { getIplTeamLogoSrc } from "@/lib/ipl-team-assets";
 
 export default function DashboardPage() {
   const router = useRouter();
   const { user, profile, initialize, signOut } = useAuthStore();
+  const { team: myTeam, loading: teamLoading } = useIplTeamById(
+    profile?.selected_team_id
+  );
 
   useEffect(() => {
     initialize();
@@ -34,12 +39,16 @@ export default function DashboardPage() {
     );
   }
 
+  const logoSrc = myTeam ? getIplTeamLogoSrc(myTeam.short_name) : null;
+
   return (
     <div className="container mx-auto px-4 py-12">
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-4xl font-bold text-white">Dashboard</h1>
-          <p className="mt-2 text-white/70">Welcome back, {profile.name || user.email}!</p>
+          <p className="mt-2 text-white/70">
+            Welcome back, {profile.name || user.email}!
+          </p>
         </div>
         <Button onClick={handleSignOut} variant="outline">
           Sign Out
@@ -48,13 +57,33 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
-          <h2 className="mb-2 text-xl font-semibold text-white">Your Team</h2>
-          <p className="text-white/70">
-            {profile.selected_team_id ? `Team ID: ${profile.selected_team_id}` : "No team selected"}
-          </p>
+          <h2 className="mb-4 text-xl font-semibold text-white">Your franchise</h2>
+          {teamLoading ? (
+            <p className="text-white/50 text-sm">Loading team…</p>
+          ) : myTeam ? (
+            <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:text-left sm:gap-5">
+              {logoSrc ? (
+                <img
+                  src={logoSrc}
+                  alt={myTeam.name}
+                  className="h-20 w-20 shrink-0 object-contain"
+                />
+              ) : (
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 text-lg font-bold">
+                  {myTeam.short_name}
+                </div>
+              )}
+              <div>
+                <p className="text-lg font-semibold text-white">{myTeam.name}</p>
+                <p className="text-sm text-white/60">{myTeam.short_name}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-white/70 text-sm">Could not load team details.</p>
+          )}
           <Link href="/select-team">
             <Button className="mt-4" variant="outline">
-              Change Team
+              Change team
             </Button>
           </Link>
         </div>
@@ -70,8 +99,15 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="mt-8 text-center">
-        <p className="text-white/50">Auction features coming soon...</p>
+      <div className="mt-10 rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+        <h2 className="mb-2 text-lg font-semibold text-white">Auction</h2>
+        <p className="mb-4 max-w-xl text-sm text-white/60">
+          Start an AI-only draft or join a multiplayer room. You will pick the mode on
+          the next screen.
+        </p>
+        <Button asChild>
+          <Link href="/auction/mode">Choose auction mode</Link>
+        </Button>
       </div>
     </div>
   );

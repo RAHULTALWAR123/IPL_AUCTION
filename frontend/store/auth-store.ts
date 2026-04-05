@@ -1,22 +1,8 @@
 import { create } from 'zustand'
 import { createClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
-
-interface Profile {
-  id: string
-  email: string
-  name: string | null
-  selected_team_id: number | null
-  squad: Array<{
-    player_id: number
-    name: string
-    avatar: string
-    role: string
-    base_price: number
-    sold_at: number
-  }>
-  budget: number
-}
+import type { Profile } from '@/lib/types/profile'
+import { fetchProfileByUserId, updateProfileByUserId } from '@/lib/repositories/profiles'
 
 interface AuthState {
   user: User | null
@@ -144,17 +130,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { error: new Error('Not authenticated') }
     }
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', user.id)
+    const { error } = await updateProfileByUserId(supabase, user.id, updates)
 
     if (error) {
       set({ loading: false })
       return { error }
     }
 
-    // Refresh profile
     await get().fetchProfile()
     set({ loading: false })
     return { error: null }
@@ -169,14 +151,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
+    const { data, error } = await fetchProfileByUserId(supabase, user.id)
 
     if (!error && data) {
-      set({ profile: data as Profile })
+      set({ profile: data })
     }
   },
 
@@ -186,7 +164,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ loading: true })
     const supabase = createClient()
 
-    // Get initial session
     const { data: { session } } = await supabase.auth.getSession()
     
     if (session) {
@@ -204,7 +181,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       })
     }
 
-    // Listen for auth changes
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         set({ user: session.user, session })
@@ -215,3 +191,5 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     })
   },
 }))
+
+export type { Profile } from '@/lib/types/profile'
