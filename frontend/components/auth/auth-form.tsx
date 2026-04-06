@@ -8,9 +8,18 @@ import { Button } from "@/components/ui/button";
 
 interface AuthFormProps {
   type: "signup" | "login" | "forgot-password" | "reset-password";
+  /** Internal path after login, e.g. from ?next=/auction/room/ABC */
+  redirectAfterLogin?: string;
 }
 
-export function AuthForm({ type }: AuthFormProps) {
+function safePostLoginPath(next: string | undefined): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/select-team";
+  }
+  return next;
+}
+
+export function AuthForm({ type, redirectAfterLogin }: AuthFormProps) {
   const router = useRouter();
   const { signIn, signUp, resetPassword, updatePassword, loading } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +42,7 @@ export function AuthForm({ type }: AuthFormProps) {
         if (error) {
           setError(error.message);
         } else {
-          router.push("/select-team");
+          router.push(safePostLoginPath(redirectAfterLogin));
         }
       } else if (type === "forgot-password") {
         const { error } = await resetPassword(data.email);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuthStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 import { useIplTeamById } from "@/hooks/use-ipl-team-by-id";
+import { useMyActiveAuctionRooms } from "@/hooks/use-my-active-auction-rooms";
 import { getIplTeamLogoSrc } from "@/lib/ipl-team-assets";
 
 export default function DashboardPage() {
@@ -13,6 +14,11 @@ export default function DashboardPage() {
   const { team: myTeam, loading: teamLoading } = useIplTeamById(
     profile?.selected_team_id
   );
+  const {
+    rooms: activeAuctionRooms,
+    loading: activeRoomsLoading,
+    error: activeRoomsError,
+  } = useMyActiveAuctionRooms(user?.id);
 
   useEffect(() => {
     initialize();
@@ -108,6 +114,65 @@ export default function DashboardPage() {
         <Button asChild>
           <Link href="/auction/mode">Choose auction mode</Link>
         </Button>
+      </div>
+
+      <div className="mt-10 rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+        <h2 className="mb-2 text-lg font-semibold text-white">Your active auctions</h2>
+        <p className="mb-4 text-sm text-white/60">
+          Lobby and in-progress rooms you host or play in. Completed rooms are hidden.
+        </p>
+        {activeRoomsLoading ? (
+          <p className="text-sm text-white/50">Loading rooms…</p>
+        ) : activeRoomsError ? (
+          <p className="text-sm text-red-400">{activeRoomsError}</p>
+        ) : activeAuctionRooms.length === 0 ? (
+          <p className="text-sm text-white/45">No active rooms yet.</p>
+        ) : (
+          <ul className="divide-y divide-white/10 rounded-lg border border-white/10 overflow-hidden">
+            {activeAuctionRooms.map((room) => (
+              <li
+                key={room.id}
+                className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-mono text-lg font-semibold tracking-wider text-cyan-400">
+                    {room.room_code}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-white/55">
+                    <span
+                      className={
+                        room.status === "lobby"
+                          ? "text-emerald-400"
+                          : "text-amber-300"
+                      }
+                    >
+                      {room.status === "lobby"
+                        ? "Lobby"
+                        : "In progress"}
+                    </span>
+                    <span className="text-white/30">·</span>
+                    <span>
+                      {room.mode === "ai" ? "AI" : "Multiplayer"}
+                    </span>
+                    {room.isHost ? (
+                      <>
+                        <span className="text-white/30">·</span>
+                        <span className="text-white/50">Host</span>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+                <Button asChild variant="outline" className="shrink-0">
+                  <Link
+                    href={`/auction/room/${encodeURIComponent(room.room_code)}`}
+                  >
+                    Rejoin
+                  </Link>
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
