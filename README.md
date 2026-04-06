@@ -26,7 +26,7 @@ IPL_AUCTION/
 │   │   └── supabase/         # browser + server clients
 │   └── store/                # Zustand auth + profile
 ├── supabase/
-│   ├── migrations/           # Ordered SQL through `005_create_auction_room_rpc.sql`
+│   ├── migrations/           # Ordered SQL through `006_domain_enum_types.sql`
 │   ├── _shared/              # Edge helpers (CORS, env); imported from `functions/*/index.ts`
 │   ├── functions/            # One folder per function; each contains only `index.ts`
 │   ├── seeds/               # Player INSERT scripts + optional enrich-*.mjs (CSVs not committed)

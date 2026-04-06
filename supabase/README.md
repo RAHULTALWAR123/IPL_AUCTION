@@ -12,6 +12,7 @@ Apply **in order** in the Supabase SQL editor or with the Supabase CLI:
 | `002_auction_tables.sql` | Auction-related tables (extend as the product grows) |
 | `003_drop_ipl_teams_logo.sql` | Drops `ipl_teams.logo`; logos live in `frontend/public` + `lib/ipl-team-assets.ts` |
 | `005_create_auction_room_rpc.sql` | `create_auction_room(...)` SECURITY DEFINER RPC (`service_role` only); used by Edge Function |
+| `006_domain_enum_types.sql` | `player_role`, `auction_room_mode`, `auction_room_status`, `auction_player_status` enums on `players.role`, `auction_rooms.mode` / `status`, `auction_players.status` |
 
 After migrations, verify **RLS** allows the app to read **`ipl_teams`** and **`players`** (and any other tables the client queries). If the team grid or player list is empty, add or fix `SELECT` policies for the relevant roles (`anon` / `authenticated`).
 
