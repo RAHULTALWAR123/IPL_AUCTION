@@ -1,0 +1,10 @@
+# Supabase CLI (optional). Run `supabase link` to bind a hosted project.
+# Deploy functions: `supabase functions deploy create-auction-room`
+
+project_id = "ipl_auction"
+
+[api]
+enabled = true
+
+[functions]
+# Function-specific config can be added per docs when needed.
