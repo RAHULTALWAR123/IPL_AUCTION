@@ -39,8 +39,8 @@ Validates header `x-auction-internal-secret` against secret **`AUCTION_INTERNAL_
 | Name | Purpose |
 |------|--------|
 | `AUCTION_INTERNAL_SECRET` | Must match `AUCTION_INTERNAL_SECRET` in `frontend/.env.local` / Vercel (Next API sends it in `x-auction-internal-secret`). |
-| `SERVICE_ROLE_KEY` or `SUPABASE_SERVICE_ROLE_KEY` | Service role JWT for the function’s `createClient` (use one name and align with [index.ts](functions/create-auction-room/index.ts)). |
-| `FUNCTION_URL` | Optional if the dashboard blocks custom secrets starting with `SUPABASE_`. Set to your project API URL: `https://<project-ref>.supabase.co` (no trailing slash). The function falls back to `SUPABASE_URL` when the platform provides it. |
+| `SUPABASE_URL` | Project API URL (often injected automatically on hosted Supabase). |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role JWT for the function’s `createClient`. |
 
 **Deploy:**
 

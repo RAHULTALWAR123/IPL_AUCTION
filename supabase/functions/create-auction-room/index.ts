@@ -28,9 +28,7 @@ Deno.serve(async (req) => {
   const supabaseUrl = resolveEdgeSupabaseUrl();
   const serviceKey = resolveEdgeServiceRoleKey();
   if (!supabaseUrl || !serviceKey) {
-    console.error(
-      "Missing FUNCTION_URL or SUPABASE_URL, or SERVICE_ROLE_KEY / SUPABASE_SERVICE_ROLE_KEY"
-    );
+    console.error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
     return jsonResponse(500, { error: "Server misconfiguration" });
   }
 
