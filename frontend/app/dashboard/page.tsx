@@ -111,9 +111,14 @@ export default function DashboardPage() {
           Start an AI-only draft or join a multiplayer room. You will pick the mode on
           the next screen.
         </p>
-        <Button asChild>
-          <Link href="/auction/mode">Choose auction mode</Link>
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild>
+            <Link href="/auction/mode">Choose auction mode</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/auction/join">Join with code</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mt-10 rounded-lg border border-white/10 bg-white/5 p-6 backdrop-blur-sm">

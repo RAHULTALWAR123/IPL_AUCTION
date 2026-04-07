@@ -8,7 +8,7 @@ Web app for an IPL-style fantasy auction: sign in, pick a franchise, then (in fu
 |------|------|------|
 | **Auth** | Email/password sign-up, login, forgot/reset password (Supabase Auth) | Session refresh hardening, optional OAuth |
 | **Profile / teams** | Profile row in Postgres; select one of 10 IPL teams; dashboard shows **team name + logo** (static assets in `frontend/public`) | — |
-| **Auction entry** | Dashboard links to **`/auction/mode`**; **Continue** creates a room via **Next API** → **Edge Function** → Postgres RPC, then opens **`/auction/room/[code]`** lobby stub | Join room, realtime bids, lobby UX |
+| **Auction entry** | Dashboard: **Choose auction mode** → create room (Next → **`create-auction-room`** Edge → RPC) or **Join with code** → **`/auction/join`** → Next → **`join-auction-room`** Edge (DB queries only), then **`/auction/room/[code]`** lobby | Realtime bids, lobby UX |
 | **Data** | `ipl_teams`, `players` catalog, profile `selected_team_id`, budget, squad JSON | Auction state, picks, leaderboards |
 | **AI / realtime** | Not wired | Gemini or other AI bidders; Supabase Realtime on auction tables |
 
@@ -17,7 +17,7 @@ Web app for an IPL-style fantasy auction: sign in, pick a franchise, then (in fu
 ```
 IPL_AUCTION/
 ├── frontend/                 # Next.js app (App Router)
-│   ├── app/                  # Routes: /, /login, /signup, /select-team, /dashboard, /auction/mode, …
+│   ├── app/                  # Routes: /, /login, /signup, /select-team, /dashboard, /auction/mode, /auction/join, …
 │   ├── components/           # UI + team picker, aceternity landing
 │   ├── hooks/                # useIplTeams, useIplTeamById, usePlayersCatalog, …
 │   ├── lib/
@@ -26,7 +26,7 @@ IPL_AUCTION/
 │   │   └── supabase/         # browser + server clients
 │   └── store/                # Zustand auth + profile
 ├── supabase/
-│   ├── migrations/           # Ordered SQL through `006_domain_enum_types.sql`
+│   ├── migrations/           # Ordered SQL through `007_room_teams_one_user_per_room.sql`
 │   ├── _shared/              # Edge helpers (CORS, env); imported from `functions/*/index.ts`
 │   ├── functions/            # One folder per function; each contains only `index.ts`
 │   ├── seeds/               # Player INSERT scripts + optional enrich-*.mjs (CSVs not committed)
@@ -62,7 +62,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 AUCTION_INTERNAL_SECRET=<long-random-string>
 ```
 
-Create-room flow: the app calls `POST /api/auctions/rooms`, which invokes the deployed Edge Function `create-auction-room`. Deploy the function and set secrets per [supabase/README.md](./supabase/README.md).
+Create-room flow: `POST /api/auctions/rooms` → Edge **`create-auction-room`**. Join flow: `POST /api/auctions/rooms/join` (body `{ roomCode }`) → Edge **`join-auction-room`**. Deploy both functions and set secrets per [supabase/README.md](./supabase/README.md).
 
 ```bash
 npm run dev
@@ -84,7 +84,7 @@ Details: [supabase/README.md](./supabase/README.md).
 1. **Landing** (`/`) → marketing hero.
 2. **Auth** → `login`, `signup`, `forgot-password`, `reset-password`.
 3. **Team** → `select-team` loads `ipl_teams`, user picks a franchise; profile stores `selected_team_id`.
-4. **Dashboard** → welcome, franchise card (name + logo), budget, squad count; **Change team**; **Choose auction mode** → `auction/mode`.
+4. **Dashboard** → welcome, franchise card (name + logo), budget, squad count; **Change team**; **Choose auction mode** → `auction/mode` or **Join with code** → `auction/join`.
 5. **Auction mode** → pick AI or multiplayer; **Continue** creates a room and navigates to **`/auction/room/{code}`** (lobby placeholder).
 
 ## Features implemented
