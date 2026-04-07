@@ -2,6 +2,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsPreflightResponse, jsonResponse } from "../../_shared/http.ts";
 import { requireAuctionInternalSecret } from "../../_shared/internal-secret.ts";
+import { listActiveAuctionRoomIdsForUser } from "../../_shared/repositories/rooms.ts";
 import {
   resolveEdgeServiceRoleKey,
   resolveEdgeSupabaseUrl,
@@ -60,6 +61,19 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  const { ids: activeRoomIds, error: activeErr } =
+    await listActiveAuctionRoomIdsForUser(supabase, hostUserId);
+  if (activeErr) {
+    console.error("create room active check:", activeErr.message);
+    return jsonResponse(500, { error: "Could not verify existing auctions" });
+  }
+  if (activeRoomIds.length > 0) {
+    return jsonResponse(403, {
+      error:
+        "You are already in an active auction. Finish or leave it before creating another room.",
+    });
+  }
 
   const { data, error } = await supabase.rpc("create_auction_room", {
     p_host_user_id: hostUserId,

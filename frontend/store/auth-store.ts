@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { createClient } from '@/lib/supabase/client'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/types/profile'
-import { fetchProfileByUserId, updateProfileByUserId } from '@/lib/repositories/profiles'
+import { fetchProfileByUserId } from '@/lib/repositories/profiles'
 
 interface AuthState {
   user: User | null
@@ -122,24 +122,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateProfile: async (updates: Partial<Profile>) => {
     set({ loading: true })
-    const supabase = createClient()
-    const { user } = get()
 
-    if (!user) {
+    if (!get().user) {
       set({ loading: false })
       return { error: new Error('Not authenticated') }
     }
 
-    const { error } = await updateProfileByUserId(supabase, user.id, updates)
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      })
 
-    if (error) {
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string
+        profile?: Profile
+      }
+
+      if (!res.ok) {
+        set({ loading: false })
+        return { error: new Error(json.error ?? `Request failed (${res.status})`) }
+      }
+
+      if (json.profile) {
+        set({ profile: json.profile, loading: false })
+      } else {
+        await get().fetchProfile()
+        set({ loading: false })
+      }
+
+      return { error: null }
+    } catch (err) {
       set({ loading: false })
-      return { error }
+      return { error: err instanceof Error ? err : new Error('Network error') }
     }
-
-    await get().fetchProfile()
-    set({ loading: false })
-    return { error: null }
   },
 
   fetchProfile: async () => {

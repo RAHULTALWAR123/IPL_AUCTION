@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import {
-  fetchMyActiveAuctionRooms,
-  type MyActiveAuctionRoom,
-} from "@/lib/repositories/auction-rooms";
+import type { MyActiveAuctionRoom } from "@/lib/repositories/auction-rooms";
 
 export function useMyActiveAuctionRooms(userId: string | undefined) {
   const [rooms, setRooms] = useState<MyActiveAuctionRoom[]>([]);
@@ -24,15 +20,25 @@ export function useMyActiveAuctionRooms(userId: string | undefined) {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    void fetchMyActiveAuctionRooms(supabase, userId).then(
-      ({ data, error: err }) => {
+    fetch("/api/me/active-rooms")
+      .then(async (res) => {
+        const json = (await res.json().catch(() => ({}))) as {
+          rooms?: MyActiveAuctionRoom[];
+          error?: string;
+        };
         if (cancelled) return;
-        if (err) setError(err.message);
-        else setRooms(data);
+        if (!res.ok || json.error) {
+          setError(json.error ?? `Request failed (${res.status})`);
+        } else {
+          setRooms(json.rooms ?? []);
+        }
         setLoading(false);
-      }
-    );
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Network error");
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;

@@ -3,6 +3,15 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsPreflightResponse, jsonResponse } from "../../_shared/http.ts";
 import { requireAuctionInternalSecret } from "../../_shared/internal-secret.ts";
 import {
+  getAuctionRoomByCode,
+  getHostSeatIfExists,
+  getProfileForJoin,
+  insertHumanRoomTeam,
+  listActiveAuctionRoomIdsForUser,
+  teamFranchiseTakenInRoom,
+  userHasSeatInRoom,
+} from "../../_shared/repositories/rooms.ts";
+import {
   resolveEdgeServiceRoleKey,
   resolveEdgeSupabaseUrl,
 } from "../../_shared/supabase-env.ts";
@@ -64,47 +73,48 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  const { data: room, error: roomErr } = await supabase
-    .from("auction_rooms")
-    .select("id, room_code, host_user_id, status")
-    .eq("room_code", roomCode)
-    .maybeSingle();
-
+  const { data: room, error: roomErr } = await getAuctionRoomByCode(supabase, roomCode);
   if (roomErr) {
     console.error("join room fetch:", roomErr.message);
     return jsonResponse(500, { error: "Could not load room" });
   }
-
-  if (!room || typeof room !== "object") {
+  if (!room) {
     return jsonResponse(404, { error: "Room not found" });
   }
 
-  const rid = (room as { id: string }).id;
-  const code = (room as { room_code: string }).room_code;
-  const hostUserId = (room as { host_user_id: string }).host_user_id;
-  const status = String((room as { status: string }).status);
+  const rid = room.id;
+  const code = room.room_code;
+  const hostUserId = room.host_user_id;
+  const status = String(room.status);
 
   if (status !== "lobby") {
     return jsonResponse(400, { error: "Room is not accepting joins (lobby only)" });
   }
 
-  const { data: profile, error: profileErr } = await supabase
-    .from("profiles")
-    .select("id, selected_team_id")
-    .eq("id", userId)
-    .maybeSingle();
+  const { ids: activeRoomIds, error: activeErr } =
+    await listActiveAuctionRoomIdsForUser(supabase, userId);
+  if (activeErr) {
+    console.error("join room active check:", activeErr.message);
+    return jsonResponse(500, { error: "Could not verify existing auctions" });
+  }
+  const participatingInOtherActiveRoom = activeRoomIds.some((id) => id !== rid);
+  if (participatingInOtherActiveRoom) {
+    return jsonResponse(403, {
+      error:
+        "You are already in an active auction. Finish or leave it before joining another room.",
+    });
+  }
 
+  const { data: profile, error: profileErr } = await getProfileForJoin(supabase, userId);
   if (profileErr) {
     console.error("join profile:", profileErr.message);
     return jsonResponse(500, { error: "Could not load profile" });
   }
-
   if (!profile) {
     return jsonResponse(400, { error: "Profile not found" });
   }
 
-  const selectedTeamId = (profile as { selected_team_id: number | null })
-    .selected_team_id;
+  const selectedTeamId = profile.selected_team_id;
   if (selectedTeamId == null) {
     return jsonResponse(400, { error: "Select a franchise before joining" });
   }
@@ -112,60 +122,46 @@ Deno.serve(async (req) => {
     return jsonResponse(400, { error: "Team does not match your profile" });
   }
 
-  const { data: hostSeat, error: hostSeatErr } = await supabase
-    .from("room_teams")
-    .select("id, user_id, team_id")
-    .eq("room_id", rid)
-    .eq("user_id", userId)
-    .eq("team_id", teamId)
-    .maybeSingle();
-
+  const { data: hostSeat, error: hostSeatErr } = await getHostSeatIfExists(
+    supabase,
+    rid,
+    userId,
+    teamId
+  );
   if (hostSeatErr) {
     console.error("join host seat:", hostSeatErr.message);
     return jsonResponse(500, { error: "Could not check existing seat" });
   }
-
   if (hostSeat && userId === hostUserId) {
     return jsonResponse(200, { roomId: rid, roomCode: code });
   }
 
-  const { data: userRows, error: userRowsErr } = await supabase
-    .from("room_teams")
-    .select("id")
-    .eq("room_id", rid)
-    .eq("user_id", userId)
-    .limit(1);
-
+  const { hasSeat, error: userRowsErr } = await userHasSeatInRoom(supabase, rid, userId);
   if (userRowsErr) {
     console.error("join user rows:", userRowsErr.message);
     return jsonResponse(500, { error: "Could not check membership" });
   }
-
-  if (userRows && userRows.length > 0) {
+  if (hasSeat) {
     return jsonResponse(409, { error: "Already in this room" });
   }
 
-  const { data: teamRows, error: teamRowsErr } = await supabase
-    .from("room_teams")
-    .select("id")
-    .eq("room_id", rid)
-    .eq("team_id", teamId)
-    .limit(1);
-
+  const { taken, error: teamRowsErr } = await teamFranchiseTakenInRoom(
+    supabase,
+    rid,
+    teamId
+  );
   if (teamRowsErr) {
     console.error("join team rows:", teamRowsErr.message);
     return jsonResponse(500, { error: "Could not check franchise" });
   }
-
-  if (teamRows && teamRows.length > 0) {
+  if (taken) {
     return jsonResponse(409, { error: "Franchise already taken in this room" });
   }
 
-  const { error: insertErr } = await supabase.from("room_teams").insert({
+  const { error: insertErr } = await insertHumanRoomTeam(supabase, {
     room_id: rid,
     team_id: teamId,
     user_id: userId,
-    is_ai: false,
   });
 
   if (insertErr) {

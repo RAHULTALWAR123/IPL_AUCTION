@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { fetchMyActiveAuctionRooms } from "@/lib/repositories/auction-rooms";
 import { fetchProfileByUserId } from "@/lib/repositories/profiles";
 
 export const runtime = "nodejs";
@@ -67,6 +68,23 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Select a team before creating a room" },
       { status: 400 }
+    );
+  }
+
+  const { data: activeRooms, error: activeErr } = await fetchMyActiveAuctionRooms(
+    supabase,
+    user.id
+  );
+  if (activeErr) {
+    return NextResponse.json({ error: activeErr.message }, { status: 500 });
+  }
+  if (activeRooms.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "You are already in an active auction. Finish or leave it before creating another room.",
+      },
+      { status: 403 }
     );
   }
 

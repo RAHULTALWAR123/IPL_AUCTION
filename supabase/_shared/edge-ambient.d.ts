@@ -18,6 +18,7 @@ type DbError = {
 /** PostgREST select chain after `.from().select(...)` */
 interface EdgeSelectFilterBuilder {
   eq(column: string, value: unknown): EdgeSelectFilterBuilder;
+  in(column: string, values: readonly unknown[]): EdgeSelectFilterBuilder;
   limit(
     n: number
   ): Promise<{ data: unknown[] | null; error: DbError }>;

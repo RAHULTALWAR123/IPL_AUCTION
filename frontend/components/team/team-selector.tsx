@@ -1,53 +1,53 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useState } from "react";
 import { TeamCard } from "./team-card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth-store";
-import { useIplTeams } from "@/hooks/use-ipl-teams";
+import type { IplTeamRow } from "@/lib/repositories/ipl-teams";
 
-export function TeamSelector() {
+interface TeamSelectorProps {
+  teams: IplTeamRow[];
+  currentTeamId: number | null;
+}
+
+export function TeamSelector({ teams, currentTeamId }: TeamSelectorProps) {
   const router = useRouter();
-  const { profile, updateProfile, fetchProfile } = useAuthStore();
-  const { teams, loading, error: teamsError } = useIplTeams();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(
-    profile?.selected_team_id || null
+    currentTeamId
   );
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    void fetchProfile();
-  }, [fetchProfile]);
-
-  useEffect(() => {
-    if (profile?.selected_team_id) {
-      setSelectedTeamId(profile.selected_team_id);
-    }
-  }, [profile]);
-
-  const handleSelectTeam = (teamId: number) => {
-    setSelectedTeamId(teamId);
-  };
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!selectedTeamId) return;
 
     setSaving(true);
-    const { error } = await updateProfile({ selected_team_id: selectedTeamId });
-    setSaving(false);
+    setError(null);
 
-    if (!error) {
+    try {
+      const res = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ selected_team_id: selectedTeamId }),
+      });
+
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+      };
+
+      if (!res.ok) {
+        setError(json.error ?? `Request failed (${res.status})`);
+        return;
+      }
+
       router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-white">Loading teams...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -60,12 +60,21 @@ export function TeamSelector() {
         </p>
       </div>
 
-      {teamsError && (
+      {teams.length === 0 && (
         <div
           className="mx-auto mb-6 max-w-2xl rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
           role="alert"
         >
-          {teamsError}
+          No teams found. Seed ipl_teams in Supabase and ensure SELECT RLS allows reads.
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="mx-auto mb-6 max-w-2xl rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+          role="alert"
+        >
+          {error}
         </div>
       )}
 
@@ -77,7 +86,7 @@ export function TeamSelector() {
             name={team.name}
             shortName={team.short_name}
             isSelected={selectedTeamId === team.id}
-            onSelect={handleSelectTeam}
+            onSelect={setSelectedTeamId}
           />
         ))}
       </div>
