@@ -120,6 +120,24 @@ export async function fetchRoomTeamSlots(
   return { data: slots, error: null };
 }
 
+export async function userHasHumanSeatInRoom(
+  client: SupabaseClient,
+  roomId: string,
+  userId: string
+): Promise<{ hasSeat: boolean; error: Error | null }> {
+  const { data, error } = await client
+    .from("room_teams")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return { hasSeat: false, error: new Error(error.message) };
+  }
+  return { hasSeat: !!data, error: null };
+}
+
 const ACTIVE_ROOM_STATUSES = ["lobby", "in_progress"] as const;
 
 export async function fetchMyActiveAuctionRooms(

@@ -19,10 +19,19 @@ type DbError = {
 interface EdgeSelectFilterBuilder {
   eq(column: string, value: unknown): EdgeSelectFilterBuilder;
   in(column: string, values: readonly unknown[]): EdgeSelectFilterBuilder;
+  order(
+    column: string,
+    options?: { ascending?: boolean }
+  ): EdgeSelectFilterBuilder;
   limit(
     n: number
   ): Promise<{ data: unknown[] | null; error: DbError }>;
   maybeSingle(): Promise<{ data: Record<string, unknown> | null; error: DbError }>;
+}
+
+interface EdgeModifyFilterBuilder extends PromiseLike<{ data: unknown; error: DbError }> {
+  eq(column: string, value: unknown): EdgeModifyFilterBuilder;
+  in(column: string, values: readonly unknown[]): EdgeModifyFilterBuilder;
 }
 
 interface EdgeInsertBuilder extends PromiseLike<{ data: unknown; error: DbError }> {
@@ -47,6 +56,8 @@ declare module "npm:@supabase/supabase-js@2" {
     from(table: string): {
       select(columns: string): EdgeSelectFilterBuilder;
       insert(values: Record<string, unknown>): EdgeInsertBuilder;
+      update(values: Record<string, unknown>): EdgeModifyFilterBuilder;
+      delete(): EdgeModifyFilterBuilder;
     };
   };
 }

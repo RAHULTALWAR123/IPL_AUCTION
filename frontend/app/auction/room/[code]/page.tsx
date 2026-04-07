@@ -3,9 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RoomLobbyTeamsTable } from "@/components/auction/room-lobby-teams";
 import { createClient } from "@/lib/supabase/server";
+import { RoomAuctionActions } from "@/components/auction/room-auction-actions";
 import {
   fetchAuctionRoomByCode,
   fetchRoomTeamSlots,
+  userHasHumanSeatInRoom,
 } from "@/lib/repositories/auction-rooms";
 
 type PageProps = {
@@ -38,6 +40,8 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
   }
 
   const isLobby = room.status === "lobby";
+  const isActiveAuction =
+    room.status === "lobby" || room.status === "in_progress";
 
   const { data: slots, error: teamsError } = isLobby
     ? await fetchRoomTeamSlots(supabase, room.id)
@@ -55,6 +59,15 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
       </div>
     );
   }
+
+  const { hasSeat: userHasSeat, error: seatCheckError } = isActiveAuction
+    ? await userHasHumanSeatInRoom(supabase, room.id, user.id)
+    : { hasSeat: false, error: null };
+
+  const canLeave =
+    isActiveAuction &&
+    userHasSeat &&
+    !seatCheckError;
 
   return (
     <div className="min-h-screen bg-black px-4 py-12 text-white">
@@ -105,6 +118,8 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
             will appear here later.
           </p>
         )}
+
+        <RoomAuctionActions roomCode={room.room_code} canLeave={canLeave} />
 
         <div className="mt-10 flex flex-wrap justify-center gap-4 sm:justify-start">
           <Button asChild variant="outline">

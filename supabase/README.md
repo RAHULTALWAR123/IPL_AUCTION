@@ -70,6 +70,25 @@ supabase functions deploy join-auction-room
 
 The Next route `POST /api/auctions/rooms/join` (session + profile) calls this function with **`roomCode`**, **`userId`**, and **`teamId`** from the server.
 
+### `leave-auction-room`
+
+Validates `x-auction-internal-secret`, then uses the **service role** client so users can **delete** or **update** `room_teams` (RLS does not grant client DELETE). Behavior:
+
+- **`lobby`:** deletes the caller’s seat row (franchise opens for another join).
+- **`in_progress`:** sets that seat to AI (`user_id` null, `is_ai` true).
+- If the leaver is **`auction_rooms.host_user_id`**, **reassigns** `host_user_id` to the remaining human with the smallest `room_teams.id`, or sets the room to **`completed`** if none.
+
+Uses the same secrets as **`create-auction-room`**.
+
+**Deploy:**
+
+```bash
+cd IPL_AUCTION
+supabase functions deploy leave-auction-room
+```
+
+The Next route `POST /api/auctions/rooms/leave` (session cookie) calls this function with **`roomCode`** and **`userId`**.
+
 ## Realtime
 
 When auction rooms and bids exist, enable **Realtime** on the tables that should push updates to clients (e.g. lots, bids, room state).

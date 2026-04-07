@@ -180,3 +180,97 @@ export async function insertHumanRoomTeam(
   });
   return { error };
 }
+
+export type RoomTeamSeatForUserRow = {
+  id: number;
+  user_id: string | null;
+  team_id: number;
+};
+
+/** Human seat for this user in this room (any team row). */
+export async function getRoomTeamSeatForUser(
+  client: EdgeServiceRoleSupabase,
+  roomId: string,
+  userId: string
+): Promise<{ data: RoomTeamSeatForUserRow | null; error: EdgeDbError }> {
+  const { data, error } = await client
+    .from("room_teams")
+    .select("id, user_id, team_id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .limit(1);
+
+  if (error) return { data: null, error };
+  const row = data?.[0];
+  if (!row || typeof row !== "object") return { data: null, error: null };
+  return { data: row as RoomTeamSeatForUserRow, error: null };
+}
+
+export async function deleteRoomTeamSeatForUser(
+  client: EdgeServiceRoleSupabase,
+  roomId: string,
+  userId: string
+): Promise<{ error: EdgeDbError }> {
+  const { error } = await client
+    .from("room_teams")
+    .delete()
+    .eq("room_id", roomId)
+    .eq("user_id", userId);
+  return { error };
+}
+
+export async function convertRoomTeamSeatToAi(
+  client: EdgeServiceRoleSupabase,
+  seatId: number
+): Promise<{ error: EdgeDbError }> {
+  const { error } = await client
+    .from("room_teams")
+    .update({
+      user_id: null,
+      is_ai: true,
+    })
+    .eq("id", seatId);
+  return { error };
+}
+
+/**
+ * After a user leaves their seat: if they were host_user_id, pick next human host
+ * (lowest room_teams.id) or mark room completed.
+ */
+export async function reassignHostOrCompleteRoom(
+  client: EdgeServiceRoleSupabase,
+  roomId: string,
+  leavingUserId: string,
+  currentHostUserId: string
+): Promise<{ error: EdgeDbError }> {
+  if (currentHostUserId !== leavingUserId) {
+    return { error: null };
+  }
+
+  const { data: rows, error: selErr } = await client
+    .from("room_teams")
+    .select("id, user_id")
+    .eq("room_id", roomId)
+    .eq("is_ai", false)
+    .order("id", { ascending: true })
+    .limit(50);
+
+  if (selErr) return { error: selErr };
+
+  const first = (rows ?? []).find(
+    (r) => (r as { user_id: string | null }).user_id != null
+  ) as { id: number; user_id: string } | undefined;
+  if (first?.user_id) {
+    const { error: upErr } = await client
+      .from("auction_rooms")
+      .update({ host_user_id: first.user_id })
+      .eq("id", roomId);
+    return { error: upErr };
+  }
+
+  const { error: doneErr } = await client
+    .from("auction_rooms")
+    .update({ status: "completed" })
+    .eq("id", roomId);
+  return { error: doneErr };
+}
