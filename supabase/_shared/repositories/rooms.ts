@@ -206,6 +206,25 @@ export async function getRoomTeamSeatForUser(
   return { data: row as RoomTeamSeatForUserRow, error: null };
 }
 
+/** Human franchise row only (`is_ai = false`). Use for auction-engine membership. */
+export async function getHumanRoomTeamSeatForUser(
+  client: EdgeServiceRoleSupabase,
+  roomId: string,
+  userId: string
+): Promise<{ data: RoomTeamSeatForUserRow | null; error: EdgeDbError }> {
+  const { data, error } = await client
+    .from("room_teams")
+    .select("id, user_id, team_id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .eq("is_ai", false)
+    .maybeSingle();
+
+  if (error) return { data: null, error };
+  if (!data || typeof data !== "object") return { data: null, error: null };
+  return { data: data as RoomTeamSeatForUserRow, error: null };
+}
+
 export async function deleteRoomTeamSeatForUser(
   client: EdgeServiceRoleSupabase,
   roomId: string,

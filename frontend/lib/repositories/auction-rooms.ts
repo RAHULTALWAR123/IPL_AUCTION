@@ -6,6 +6,10 @@ export interface AuctionRoomRow {
   host_user_id: string;
   mode: string;
   status: string;
+  /** Present when migration `008_auction_engine` is applied. */
+  current_player_id?: number | null;
+  engine_lot_serial?: number;
+  engine_catalog_total?: number;
 }
 
 /** Rooms the user hosts or has a seat in, with lobby / in_progress status only. */
@@ -54,7 +58,9 @@ export async function fetchAuctionRoomByCode(
 
   const { data, error } = await client
     .from("auction_rooms")
-    .select("id, room_code, host_user_id, mode, status")
+    .select(
+      "id, room_code, host_user_id, mode, status, current_player_id, engine_lot_serial, engine_catalog_total"
+    )
     .eq("room_code", normalized)
     .maybeSingle();
 
