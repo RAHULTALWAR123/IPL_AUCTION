@@ -14,6 +14,7 @@ Apply **in order** in the Supabase SQL editor or with the Supabase CLI:
 | `005_create_auction_room_rpc.sql` | `create_auction_room(...)` SECURITY DEFINER RPC (`service_role` only); used by Edge Function |
 | `006_domain_enum_types.sql` | `player_role`, `auction_room_mode`, `auction_room_status`, `auction_player_status` enums on `players.role`, `auction_rooms.mode` / `status`, `auction_players.status` |
 | `007_room_teams_one_user_per_room.sql` | Partial unique index `room_teams_one_user_per_room` on `(room_id, user_id)` where `user_id IS NOT NULL` — at most one human seat per user per room |
+| `008_auction_engine.sql` | Engine columns on `auction_rooms` + `auction_engine(room_id, actor_user_id, action)` SECURITY DEFINER RPC (`service_role` only): `start` / `next` (bucket shuffle via SQL `ORDER BY random()`) |
 
 After migrations, verify **RLS** allows the app to read **`ipl_teams`** and **`players`** (and any other tables the client queries). If the team grid or player list is empty, add or fix `SELECT` policies for the relevant roles (`anon` / `authenticated`).
 
@@ -89,9 +90,22 @@ supabase functions deploy leave-auction-room
 
 The Next route `POST /api/auctions/rooms/leave` (session cookie) calls this function with **`roomCode`** and **`userId`**.
 
+### `control-auction-engine`
+
+Validates `x-auction-internal-secret`, checks the caller has a **human** `room_teams` row, then invokes **`auction_engine`** (`start` | `next`) with the **service role** client. Lot order and bucket refill are entirely inside Postgres.
+
+Uses the same secrets as **`create-auction-room`**. The Next route is `POST /api/auctions/rooms/engine` with body **`{ roomCode, action }`** (`"start"` | `"next"`).
+
+**Deploy:**
+
+```bash
+cd IPL_AUCTION
+supabase functions deploy control-auction-engine
+```
+
 ## Realtime
 
-When auction rooms and bids exist, enable **Realtime** on the tables that should push updates to clients (e.g. lots, bids, room state).
+When auction rooms and bids exist, enable **Realtime** on the tables that should push updates to clients (e.g. **`auction_rooms`** for the live lot, bids, room state).
 
 ## Local Supabase
 

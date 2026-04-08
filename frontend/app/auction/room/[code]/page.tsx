@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RoomLobbyTeamsTable } from "@/components/auction/room-lobby-teams";
 import { createClient } from "@/lib/supabase/server";
+import { AuctionRoomLive } from "@/components/auction/auction-room-live";
 import { RoomAuctionActions } from "@/components/auction/room-auction-actions";
 import {
   fetchAuctionRoomByCode,
@@ -47,6 +48,9 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
     ? await fetchRoomTeamSlots(supabase, room.id)
     : { data: [], error: null };
 
+  const { hasSeat: userHasSeat, error: seatCheckError } =
+    await userHasHumanSeatInRoom(supabase, room.id, user.id);
+
   if (teamsError && isLobby) {
     return (
       <div className="min-h-screen bg-black px-4 py-12 text-white">
@@ -59,10 +63,6 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
       </div>
     );
   }
-
-  const { hasSeat: userHasSeat, error: seatCheckError } = isActiveAuction
-    ? await userHasHumanSeatInRoom(supabase, room.id, user.id)
-    : { hasSeat: false, error: null };
 
   const canLeave =
     isActiveAuction &&
@@ -112,12 +112,21 @@ export default async function AuctionRoomLobbyPage({ params }: PageProps) {
             </p>
             <RoomLobbyTeamsTable slots={slots} />
           </>
-        ) : (
-          <p className="text-center text-white/60">
-            This auction is no longer in the lobby ({room.status}). Live bidding UI
-            will appear here later.
-          </p>
-        )}
+        ) : null}
+
+        {isLobby ||
+        room.status === "in_progress" ||
+        room.status === "completed" ? (
+          <AuctionRoomLive
+            roomId={room.id}
+            roomCode={room.room_code}
+            initialStatus={room.status}
+            initialCurrentPlayerId={room.current_player_id ?? null}
+            initialEngineLotSerial={room.engine_lot_serial ?? 0}
+            initialEngineCatalogTotal={room.engine_catalog_total ?? 0}
+            hasSeat={userHasSeat && !seatCheckError}
+          />
+        ) : null}
 
         <RoomAuctionActions roomCode={room.room_code} canLeave={canLeave} />
 

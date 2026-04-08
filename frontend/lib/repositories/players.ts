@@ -20,6 +20,24 @@ export interface PlayerCatalogRow {
   image_url: string | null;
 }
 
+export async function fetchPlayerById(
+  client: SupabaseClient,
+  playerId: number
+): Promise<{ data: PlayerCatalogRow | null; error: Error | null }> {
+  const { data, error } = await client
+    .from("players")
+    .select(
+      "id, name, role, nationality, is_overseas, base_price, set_category, set_order, matches, runs, batting_avg, strike_rate, wickets, bowling_avg, economy, image_url"
+    )
+    .eq("id", playerId)
+    .maybeSingle();
+
+  if (error) {
+    return { data: null, error: new Error(error.message) };
+  }
+  return { data: (data ?? null) as PlayerCatalogRow | null, error: null };
+}
+
 export async function fetchPlayersCatalog(
   client: SupabaseClient
 ): Promise<{ data: PlayerCatalogRow[]; error: Error | null }> {
